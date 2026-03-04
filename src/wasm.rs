@@ -8,6 +8,8 @@ use crate::queue::QueueHandle;
 /// Host state stored in the WASM Store.
 pub struct WasmState {
     pub queue: QueueHandle,
+    #[cfg(feature = "wasi")]
+    pub wasi_ctx: Option<wasmtime_wasi::p1::WasiP1Ctx>,
 }
 
 /// A compiled WASM engine + module, reusable across instances.
@@ -27,8 +29,48 @@ impl WasmTransform {
 
     /// Create a live instance bound to a queue handle.
     pub async fn instantiate(&self, queue: QueueHandle) -> Result<WasmInstance> {
-        let mut store = Store::new(&self.engine, WasmState { queue });
+        // Detect if the module requires WASI by checking for wasi_snapshot_preview1 imports
+        let needs_wasi = self
+            .module
+            .imports()
+            .any(|import| import.module() == "wasi_snapshot_preview1");
+
+        #[cfg(feature = "wasi")]
+        let wasi_ctx = if needs_wasi {
+            Some(
+                wasmtime_wasi::WasiCtxBuilder::new()
+                    .build_p1(),
+            )
+        } else {
+            None
+        };
+
+        #[cfg(not(feature = "wasi"))]
+        if needs_wasi {
+            return Err(CaduceusError::Config(
+                "this WASM module requires WASI support, but the 'wasi' feature is not enabled. \
+                 Rebuild with: cargo build --features wasi"
+                    .into(),
+            ));
+        }
+
+        let mut store = Store::new(
+            &self.engine,
+            WasmState {
+                queue,
+                #[cfg(feature = "wasi")]
+                wasi_ctx,
+            },
+        );
         let mut linker = Linker::new(&self.engine);
+
+        // Add WASI imports if needed
+        #[cfg(feature = "wasi")]
+        if needs_wasi {
+            wasmtime_wasi::p1::add_to_linker_async(&mut linker, |state: &mut WasmState| {
+                state.wasi_ctx.as_mut().expect("WASI context missing")
+            })?;
+        }
 
         // Register host functions — params arrive as a tuple
         linker.func_wrap_async(
