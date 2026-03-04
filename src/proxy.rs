@@ -252,8 +252,8 @@ pub async fn run_proxy(config: ProxyConfig) -> Result<ExitStatus> {
 
     // Spawn stderr forwarding task (only if stderr handle exists)
     let stderr_handle = queue_handle.clone();
-    let stderr_task = if let Some(child_stderr) = child_stderr {
-        Some(tokio::spawn(async move {
+    let stderr_task = child_stderr.map(|child_stderr| {
+        tokio::spawn(async move {
             let mut wasm = match stderr_transform {
                 Some(t) => Some(t.instantiate(stderr_handle.clone()).await?),
                 None => None,
@@ -282,10 +282,8 @@ pub async fn run_proxy(config: ProxyConfig) -> Result<ExitStatus> {
             }
 
             Ok::<(), CaduceusError>(())
-        }))
-    } else {
-        None
-    };
+        })
+    });
 
     // Wait for child to exit
     let status = running_child.wait().await?;
