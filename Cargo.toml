@@ -1,0 +1,21 @@
+[package]
+name = "caduceus"
+version = "0.1.0"
+edition = "2021"
+description = "Terminal proxy with WASM-based I/O stream transformation"
+license = "MIT"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+wasmtime = { version = "42", features = ["async", "cranelift"] }
+pty-process = { version = "0.5", features = ["async"], optional = true }
+thiserror = "2"
+tracing = "0.1"
+
+[dev-dependencies]
+wat = "1"
+tracing-subscriber = "0.3"
+
+[features]
+default = ["pty"]
+pty = ["dep:pty-process"]
