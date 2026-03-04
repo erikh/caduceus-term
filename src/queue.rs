@@ -6,13 +6,18 @@ use crate::error::{CaduceusError, Result};
 
 /// An I/O operation to be executed by the queue.
 pub enum IoOperation {
+    /// Write data to the child process's stdin.
     WriteChildStdin(Vec<u8>),
+    /// Write data to the parent's stdout.
     WriteParentStdout(Vec<u8>),
+    /// Write data to the parent's stderr.
     WriteParentStderr(Vec<u8>),
+    /// Read up to `max_bytes` from the parent's stdin, returning data via `response`.
     ReadParentStdin {
         max_bytes: usize,
         response: oneshot::Sender<Vec<u8>>,
     },
+    /// Shut down the queue loop.
     Shutdown,
 }
 
@@ -23,6 +28,7 @@ pub struct QueueHandle {
 }
 
 impl QueueHandle {
+    /// Send data to the child process's stdin.
     pub async fn write_child_stdin(&self, data: Vec<u8>) -> Result<()> {
         self.tx
             .send(IoOperation::WriteChildStdin(data))
@@ -30,6 +36,7 @@ impl QueueHandle {
             .map_err(|e| CaduceusError::QueueSendFailed(e.to_string()))
     }
 
+    /// Send data to the parent's stdout.
     pub async fn write_parent_stdout(&self, data: Vec<u8>) -> Result<()> {
         self.tx
             .send(IoOperation::WriteParentStdout(data))
@@ -37,6 +44,7 @@ impl QueueHandle {
             .map_err(|e| CaduceusError::QueueSendFailed(e.to_string()))
     }
 
+    /// Send data to the parent's stderr.
     pub async fn write_parent_stderr(&self, data: Vec<u8>) -> Result<()> {
         self.tx
             .send(IoOperation::WriteParentStderr(data))
@@ -44,6 +52,7 @@ impl QueueHandle {
             .map_err(|e| CaduceusError::QueueSendFailed(e.to_string()))
     }
 
+    /// Read up to `max_bytes` from the parent's stdin.
     pub async fn read_parent_stdin(&self, max_bytes: usize) -> Result<Vec<u8>> {
         let (response_tx, response_rx) = oneshot::channel();
         self.tx
@@ -56,6 +65,7 @@ impl QueueHandle {
         response_rx.await.map_err(|_| CaduceusError::QueueShutdown)
     }
 
+    /// Signal the queue to shut down.
     pub async fn shutdown(&self) -> Result<()> {
         self.tx
             .send(IoOperation::Shutdown)

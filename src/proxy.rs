@@ -14,7 +14,9 @@ use crate::wasm::WasmTransform;
 /// How to spawn the child process.
 #[derive(Clone, Debug)]
 pub enum ChildMode {
+    /// Standard pipes for stdin/stdout/stderr.
     Piped,
+    /// Pseudo-terminal with the given dimensions.
     #[cfg(feature = "pty")]
     Pty { rows: u16, cols: u16 },
 }
@@ -22,7 +24,9 @@ pub enum ChildMode {
 /// Source for a WASM module.
 #[derive(Clone, Debug)]
 pub enum WasmModuleSource {
+    /// Raw WASM bytes already in memory.
     Bytes(Vec<u8>),
+    /// Path to a `.wasm` file on disk.
     File(PathBuf),
 }
 
@@ -52,6 +56,7 @@ pub struct ProxyBuilder {
 }
 
 impl ProxyBuilder {
+    /// Create a new builder for the given program.
     pub fn new(program: impl Into<OsString>) -> Self {
         ProxyBuilder {
             config: ProxyConfig {
@@ -66,51 +71,61 @@ impl ProxyBuilder {
         }
     }
 
+    /// Append a single argument to the child command.
     pub fn arg(mut self, arg: impl Into<OsString>) -> Self {
         self.config.args.push(arg.into());
         self
     }
 
+    /// Append multiple arguments to the child command.
     pub fn args(mut self, args: impl IntoIterator<Item = impl Into<OsString>>) -> Self {
         self.config.args.extend(args.into_iter().map(Into::into));
         self
     }
 
+    /// Set an environment variable for the child process.
     pub fn env(mut self, key: impl Into<OsString>, val: impl Into<OsString>) -> Self {
         self.config.env.insert(key.into(), val.into());
         self
     }
 
+    /// Set the working directory for the child process.
     pub fn cwd(mut self, cwd: impl Into<PathBuf>) -> Self {
         self.config.cwd = Some(cwd.into());
         self
     }
 
+    /// Set how the child process is spawned (piped or PTY).
     pub fn child_mode(mut self, mode: ChildMode) -> Self {
         self.config.child_mode = mode;
         self
     }
 
+    /// Attach a WASM transform to the child's stdin stream.
     pub fn stdin_transform(mut self, source: WasmModuleSource) -> Self {
         self.config.transforms.stdin = Some(source);
         self
     }
 
+    /// Attach a WASM transform to the child's stdout stream.
     pub fn stdout_transform(mut self, source: WasmModuleSource) -> Self {
         self.config.transforms.stdout = Some(source);
         self
     }
 
+    /// Attach a WASM transform to the child's stderr stream.
     pub fn stderr_transform(mut self, source: WasmModuleSource) -> Self {
         self.config.transforms.stderr = Some(source);
         self
     }
 
+    /// Set the capacity of the I/O queue channel (default: 256).
     pub fn queue_capacity(mut self, capacity: usize) -> Self {
         self.config.queue_capacity = capacity;
         self
     }
 
+    /// Consume the builder and return the final [`ProxyConfig`].
     pub fn build(self) -> ProxyConfig {
         self.config
     }

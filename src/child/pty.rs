@@ -12,6 +12,7 @@ pub struct PtyRunningChild {
 }
 
 impl PtyRunningChild {
+    /// Wait for the PTY child to exit and return its status.
     pub async fn wait(&mut self) -> Result<ExitStatus> {
         self.child.wait().await.map_err(Into::into)
     }
